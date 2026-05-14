@@ -11,6 +11,7 @@ package com.mycompany.juegoestrategia;
 public class JuegoEstrategia {
 
     public static void main(String[] args) {
-        System.out.println("Hello World!");
+        Servidor cuartelGeneral = new Servidor();
+        cuartelGeneral.iniciar();
     }
 }
