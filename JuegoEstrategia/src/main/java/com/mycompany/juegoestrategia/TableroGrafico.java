@@ -10,20 +10,23 @@ public class TableroGrafico extends JFrame {
     private JButton[][] casillas;
     private JTextArea registroAcciones;
     private PrintWriter salidaRed;
-    private JLabel indicadorTurno; // Nuevo letrero dinámico
-    private boolean esMiTurno = false; // Candado lógico de la interfaz
+    private JLabel indicadorTurno;
+    private boolean esMiTurno = false;
+    public boolean faseColocacion = false; 
+
+    // Ajuste de tamaño para el nuevo tablero
+    private final int TAM = 7; 
 
     public TableroGrafico(PrintWriter salidaRed) {
         this.salidaRed = salidaRed;
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}
 
         setTitle("État-Major Naval - Centro de Operaciones");
-        setSize(700, 750);
+        setSize(800, 850); // Ventana ligeramente más grande
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout(10, 10));
         getContentPane().setBackground(new Color(20, 25, 30));
 
-        // Reestructuración del panel superior para incluir el indicador de turno
         JPanel panelSuperior = new JPanel(new GridLayout(2, 1));
         panelSuperior.setBackground(new Color(20, 25, 30));
         
@@ -42,27 +45,28 @@ public class TableroGrafico extends JFrame {
         add(panelSuperior, BorderLayout.NORTH);
 
         JPanel panelMapa = new JPanel();
-        panelMapa.setLayout(new GridLayout(5, 5, 2, 2));
+        panelMapa.setLayout(new GridLayout(TAM, TAM, 2, 2)); // Matriz 7x7
         panelMapa.setBackground(new Color(20, 25, 30));
         panelMapa.setBorder(new EmptyBorder(0, 20, 0, 20));
 
-        casillas = new JButton[5][5];
-        for (int i = 0; i < 5; i++) {
-            for (int j = 0; j < 5; j++) {
+        casillas = new JButton[TAM][TAM];
+        for (int i = 0; i < TAM; i++) {
+            for (int j = 0; j < TAM; j++) {
                 final int fila = i;
                 final int col = j;
                 casillas[i][j] = new JButton("~");
                 casillas[i][j].setBackground(new Color(28, 57, 104)); 
                 casillas[i][j].setForeground(new Color(0, 255, 255));
-                casillas[i][j].setFont(new Font("Monospaced", Font.BOLD, 20));
+                casillas[i][j].setFont(new Font("Monospaced", Font.BOLD, 18)); // Fuente un poco más pequeña
                 casillas[i][j].setFocusPainted(false);
                 casillas[i][j].setBorder(new LineBorder(new Color(0, 100, 200), 1));
                 
                 casillas[i][j].addActionListener(e -> {
-                    // Validamos la variable antes de permitir enviar el mensaje por red
-                    if (this.salidaRed != null && esMiTurno) {
-                        this.salidaRed.println("ATACAR|" + fila + "|" + col);
-                    } else if (!esMiTurno) {
+                    if (faseColocacion) {
+                        if (this.salidaRed != null) this.salidaRed.println("COLOCAR|" + fila + "|" + col);
+                    } else if (esMiTurno) {
+                        if (this.salidaRed != null) this.salidaRed.println("ATACAR|" + fila + "|" + col);
+                    } else {
                         agregarMensaje("Error táctico: Aún no es tu turno.");
                     }
                 });
@@ -96,28 +100,58 @@ public class TableroGrafico extends JFrame {
         registroAcciones.setCaretPosition(registroAcciones.getDocument().getLength());
     }
 
-    public void registrarImpacto(int fila, int col, int idJugador) {
-        JButton boton = casillas[fila][col];
-        boton.setEnabled(false);
-        if (idJugador == 1) {
-            boton.setBackground(new Color(200, 50, 50));
-            boton.setText("X");
-        } else {
-            boton.setBackground(new Color(50, 200, 50));
-            boton.setText("O");
-        }
-        agregarMensaje("Artillería del General " + idJugador + " impactó en la zona [" + fila + ", " + col + "]");
+    public void registrarMiBase(int f, int c) {
+        casillas[f][c].setBackground(new Color(0, 85, 164)); 
+        casillas[f][c].setText("B");
+        casillas[f][c].setEnabled(false); 
+        agregarMensaje("Base instalada y camuflada en [" + f + "," + c + "]");
     }
 
-    // NUEVO MÉTODO: Actualiza los colores y textos del letrero superior
     public void actualizarTurno(boolean tuTurno) {
         this.esMiTurno = tuTurno;
         if (tuTurno) {
             indicadorTurno.setText(">>> ES TU TURNO - ORDENA EL ATAQUE <<<");
-            indicadorTurno.setForeground(new Color(0, 255, 0)); // Verde
+            indicadorTurno.setForeground(new Color(0, 255, 0));
         } else {
             indicadorTurno.setText("ESPERANDO MOVIMIENTO ENEMIGO...");
             indicadorTurno.setForeground(Color.RED);
         }
+    }
+    
+    public void iniciarFaseColocacion() {
+        this.faseColocacion = true;
+        indicadorTurno.setText("FASE DE DESPLIEGUE: UBICA TUS 5 BASES");
+        indicadorTurno.setForeground(Color.CYAN);
+    }
+
+    public void iniciarFaseCombate() {
+        this.faseColocacion = false;
+        for (int i = 0; i < TAM; i++) {
+            for (int j = 0; j < TAM; j++) {
+                casillas[i][j].setEnabled(true); 
+            }
+        }
+        agregarMensaje("Sistemas de armamento desbloqueados. Listos para disparar.");
+    }
+
+    public void registrarAcierto(int f, int c, int idJugador) {
+        casillas[f][c].setEnabled(false);
+        casillas[f][c].setBackground(new Color(220, 20, 20)); 
+        casillas[f][c].setText("💥");
+        agregarMensaje("¡IMPACTO CRÍTICO! El General " + idJugador + " destruyó una base en [" + f + "," + c + "]");
+    }
+
+    public void registrarAgua(int f, int c, int idJugador) {
+        casillas[f][c].setEnabled(false);
+        casillas[f][c].setBackground(new Color(100, 100, 100)); 
+        casillas[f][c].setText("O");
+        agregarMensaje("General " + idJugador + " disparó a [" + f + "," + c + "]. Solo fue agua.");
+    }
+
+    public void finDelJuego(String mensajeVictoria) {
+        this.esMiTurno = false; 
+        indicadorTurno.setText("FIN DE LA TRANSMISIÓN");
+        indicadorTurno.setForeground(Color.WHITE);
+        JOptionPane.showMessageDialog(this, mensajeVictoria, "Resolución del Conflicto", JOptionPane.INFORMATION_MESSAGE);
     }
 }
