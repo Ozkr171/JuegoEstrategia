@@ -2,6 +2,7 @@ package com.mycompany.juegoestrategia;
 
 import java.io.*;
 import java.net.Socket;
+import javax.swing.SwingUtilities; // Importante para la seguridad gráfica
 
 public class Cliente {
     private final String HOST = "127.0.0.1";
@@ -11,17 +12,13 @@ public class Cliente {
     public void conectar() {
         try {
             Socket socket = new Socket(HOST, PUERTO);
-            
-            // 1. Configuramos los canales de entrada y salida
             PrintWriter salida = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-            // 2. Iniciamos la interfaz pasándole el canal de salida
             tablero = new TableroGrafico(salida);
             tablero.setVisible(true);
             tablero.agregarMensaje("Enlace establecido con el Cuartel General.");
 
-            // 3. Hilo para escuchar al servidor sin congelar la interfaz
             Thread hiloEscucha = new Thread(() -> escucharServidor(entrada));
             hiloEscucha.start();
 
@@ -33,12 +30,31 @@ public class Cliente {
     private void escucharServidor(BufferedReader entrada) {
         try {
             String mensaje;
-            // El ciclo while se detiene aquí a esperar hasta que el servidor diga algo
             while ((mensaje = entrada.readLine()) != null) {
-                tablero.agregarMensaje("Servidor informa: " + mensaje);
+                // Hacemos que la variable sea "final" o efectivamente final para usarla en SwingUtilities
+                final String mensajeFinal = mensaje; 
+                
+                // NUEVO: Decodificación de comandos
+                if (mensajeFinal.startsWith("IMPACTO")) {
+                    String[] partes = mensajeFinal.split("\\|");
+                    int f = Integer.parseInt(partes[1]);
+                    int c = Integer.parseInt(partes[2]);
+                    int jugador = Integer.parseInt(partes[3]);
+                    
+                    // Actualización segura de la interfaz gráfica
+                    SwingUtilities.invokeLater(() -> {
+                        tablero.registrarImpacto(f, c, jugador);
+                    });
+                } else {
+                    SwingUtilities.invokeLater(() -> {
+                        tablero.agregarMensaje("Servidor informa: " + mensajeFinal);
+                    });
+                }
             }
         } catch (IOException e) {
-            tablero.agregarMensaje("[ALERTA] Conexión perdida con el mando central.");
+            SwingUtilities.invokeLater(() -> {
+                tablero.agregarMensaje("[ALERTA] Conexión perdida con el mando central.");
+            });
         }
     }
 

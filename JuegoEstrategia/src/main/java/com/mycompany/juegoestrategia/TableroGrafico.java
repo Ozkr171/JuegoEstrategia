@@ -9,9 +9,8 @@ import java.io.PrintWriter;
 public class TableroGrafico extends JFrame {
     private JButton[][] casillas;
     private JTextArea registroAcciones;
-    private PrintWriter salidaRed; // El canal por donde enviaremos las órdenes
+    private PrintWriter salidaRed; 
 
-    // Modificamos el constructor para recibir el canal de comunicación
     public TableroGrafico(PrintWriter salidaRed) {
         this.salidaRed = salidaRed;
 
@@ -46,12 +45,9 @@ public class TableroGrafico extends JFrame {
                 casillas[i][j].setFocusPainted(false);
                 casillas[i][j].setBorder(new LineBorder(new Color(0, 100, 200), 1));
                 
-                // Agregamos la acción al hacer clic
                 casillas[i][j].addActionListener(e -> {
                     if (this.salidaRed != null) {
-                        // Enviamos el comando táctico usando nuestro protocolo inventado
                         this.salidaRed.println("ATACAR|" + fila + "|" + col);
-                        agregarMensaje("Coordenadas enviadas: [" + fila + ", " + col + "]");
                     }
                 });
                 panelMapa.add(casillas[i][j]);
@@ -79,10 +75,24 @@ public class TableroGrafico extends JFrame {
         setLocationRelativeTo(null);
     }
 
-    // Método para actualizar la consola verde desde cualquier parte
     public void agregarMensaje(String mensaje) {
         registroAcciones.append("> " + mensaje + "\n");
-        // Auto-scroll hacia abajo
         registroAcciones.setCaretPosition(registroAcciones.getDocument().getLength());
+    }
+
+    // NUEVO MÉTODO: Pinta el botón dependiendo de quién atacó
+    public void registrarImpacto(int fila, int col, int idJugador) {
+        JButton boton = casillas[fila][col];
+        boton.setEnabled(false); // Evita que se vuelva a clickear
+        
+        if (idJugador == 1) {
+            boton.setBackground(new Color(200, 50, 50)); // Rojo táctico
+            boton.setText("X");
+        } else {
+            boton.setBackground(new Color(50, 200, 50)); // Verde táctico
+            boton.setText("O");
+        }
+        
+        agregarMensaje("Artillería del General " + idJugador + " impactó en la zona [" + fila + ", " + col + "]");
     }
 }
