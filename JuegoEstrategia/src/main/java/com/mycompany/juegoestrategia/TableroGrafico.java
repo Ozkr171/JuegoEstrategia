@@ -9,11 +9,12 @@ import java.io.PrintWriter;
 public class TableroGrafico extends JFrame {
     private JButton[][] casillas;
     private JTextArea registroAcciones;
-    private PrintWriter salidaRed; 
+    private PrintWriter salidaRed;
+    private JLabel indicadorTurno; // Nuevo letrero dinámico
+    private boolean esMiTurno = false; // Candado lógico de la interfaz
 
     public TableroGrafico(PrintWriter salidaRed) {
         this.salidaRed = salidaRed;
-
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}
 
         setTitle("État-Major Naval - Centro de Operaciones");
@@ -22,11 +23,23 @@ public class TableroGrafico extends JFrame {
         setLayout(new BorderLayout(10, 10));
         getContentPane().setBackground(new Color(20, 25, 30));
 
+        // Reestructuración del panel superior para incluir el indicador de turno
+        JPanel panelSuperior = new JPanel(new GridLayout(2, 1));
+        panelSuperior.setBackground(new Color(20, 25, 30));
+        
         JLabel titulo = new JLabel("SISTEMA DE CONTROL TERRITORIAL", SwingConstants.CENTER);
         titulo.setFont(new Font("Monospaced", Font.BOLD, 24));
         titulo.setForeground(new Color(200, 200, 200));
-        titulo.setBorder(new EmptyBorder(15, 0, 10, 0));
-        add(titulo, BorderLayout.NORTH);
+        titulo.setBorder(new EmptyBorder(15, 0, 5, 0));
+        
+        indicadorTurno = new JLabel("Estableciendo enlace satelital...", SwingConstants.CENTER);
+        indicadorTurno.setFont(new Font("Monospaced", Font.BOLD, 18));
+        indicadorTurno.setForeground(Color.YELLOW);
+        indicadorTurno.setBorder(new EmptyBorder(0, 0, 10, 0));
+
+        panelSuperior.add(titulo);
+        panelSuperior.add(indicadorTurno);
+        add(panelSuperior, BorderLayout.NORTH);
 
         JPanel panelMapa = new JPanel();
         panelMapa.setLayout(new GridLayout(5, 5, 2, 2));
@@ -46,8 +59,11 @@ public class TableroGrafico extends JFrame {
                 casillas[i][j].setBorder(new LineBorder(new Color(0, 100, 200), 1));
                 
                 casillas[i][j].addActionListener(e -> {
-                    if (this.salidaRed != null) {
+                    // Validamos la variable antes de permitir enviar el mensaje por red
+                    if (this.salidaRed != null && esMiTurno) {
                         this.salidaRed.println("ATACAR|" + fila + "|" + col);
+                    } else if (!esMiTurno) {
+                        agregarMensaje("Error táctico: Aún no es tu turno.");
                     }
                 });
                 panelMapa.add(casillas[i][j]);
@@ -80,19 +96,28 @@ public class TableroGrafico extends JFrame {
         registroAcciones.setCaretPosition(registroAcciones.getDocument().getLength());
     }
 
-    // NUEVO MÉTODO: Pinta el botón dependiendo de quién atacó
     public void registrarImpacto(int fila, int col, int idJugador) {
         JButton boton = casillas[fila][col];
-        boton.setEnabled(false); // Evita que se vuelva a clickear
-        
+        boton.setEnabled(false);
         if (idJugador == 1) {
-            boton.setBackground(new Color(200, 50, 50)); // Rojo táctico
+            boton.setBackground(new Color(200, 50, 50));
             boton.setText("X");
         } else {
-            boton.setBackground(new Color(50, 200, 50)); // Verde táctico
+            boton.setBackground(new Color(50, 200, 50));
             boton.setText("O");
         }
-        
         agregarMensaje("Artillería del General " + idJugador + " impactó en la zona [" + fila + ", " + col + "]");
+    }
+
+    // NUEVO MÉTODO: Actualiza los colores y textos del letrero superior
+    public void actualizarTurno(boolean tuTurno) {
+        this.esMiTurno = tuTurno;
+        if (tuTurno) {
+            indicadorTurno.setText(">>> ES TU TURNO - ORDENA EL ATAQUE <<<");
+            indicadorTurno.setForeground(new Color(0, 255, 0)); // Verde
+        } else {
+            indicadorTurno.setText("ESPERANDO MOVIMIENTO ENEMIGO...");
+            indicadorTurno.setForeground(Color.RED);
+        }
     }
 }

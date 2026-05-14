@@ -2,12 +2,13 @@ package com.mycompany.juegoestrategia;
 
 import java.io.*;
 import java.net.Socket;
-import javax.swing.SwingUtilities; // Importante para la seguridad gráfica
+import javax.swing.SwingUtilities;
 
 public class Cliente {
     private final String HOST = "127.0.0.1";
     private final int PUERTO = 12345;
     private TableroGrafico tablero;
+    private int miId; // Variable para recordar qué General somos
 
     public void conectar() {
         try {
@@ -17,7 +18,6 @@ public class Cliente {
 
             tablero = new TableroGrafico(salida);
             tablero.setVisible(true);
-            tablero.agregarMensaje("Enlace establecido con el Cuartel General.");
 
             Thread hiloEscucha = new Thread(() -> escucharServidor(entrada));
             hiloEscucha.start();
@@ -31,30 +31,31 @@ public class Cliente {
         try {
             String mensaje;
             while ((mensaje = entrada.readLine()) != null) {
-                // Hacemos que la variable sea "final" o efectivamente final para usarla en SwingUtilities
-                final String mensajeFinal = mensaje; 
+                final String msj = mensaje;
                 
-                // NUEVO: Decodificación de comandos
-                if (mensajeFinal.startsWith("IMPACTO")) {
-                    String[] partes = mensajeFinal.split("\\|");
-                    int f = Integer.parseInt(partes[1]);
-                    int c = Integer.parseInt(partes[2]);
-                    int jugador = Integer.parseInt(partes[3]);
-                    
-                    // Actualización segura de la interfaz gráfica
-                    SwingUtilities.invokeLater(() -> {
-                        tablero.registrarImpacto(f, c, jugador);
-                    });
-                } else {
-                    SwingUtilities.invokeLater(() -> {
-                        tablero.agregarMensaje("Servidor informa: " + mensajeFinal);
-                    });
-                }
+                // Procesamos todos los comandos dentro del hilo de Swing
+                SwingUtilities.invokeLater(() -> {
+                    if (msj.startsWith("ID|")) {
+                        miId = Integer.parseInt(msj.split("\\|")[1]);
+                        tablero.agregarMensaje("Asignado como General " + miId);
+                    } 
+                    else if (msj.startsWith("TURNO|")) {
+                        int turnoActual = Integer.parseInt(msj.split("\\|")[1]);
+                        // Si el turno que manda el servidor es igual a mi ID, es mi turno
+                        tablero.actualizarTurno(turnoActual == miId); 
+                    } 
+                    else if (msj.startsWith("IMPACTO|")) {
+                        String[] p = msj.split("\\|");
+                        tablero.registrarImpacto(Integer.parseInt(p[1]), Integer.parseInt(p[2]), Integer.parseInt(p[3]));
+                    } 
+                    else if (msj.startsWith("MENSAJE|")) {
+                        // Limpiamos la etiqueta para imprimir solo el texto
+                        tablero.agregarMensaje(msj.split("\\|")[1]);
+                    }
+                });
             }
         } catch (IOException e) {
-            SwingUtilities.invokeLater(() -> {
-                tablero.agregarMensaje("[ALERTA] Conexión perdida con el mando central.");
-            });
+            SwingUtilities.invokeLater(() -> tablero.agregarMensaje("[ALERTA] Conexión perdida."));
         }
     }
 
